@@ -1,6 +1,28 @@
-# AUS HPC quickstart (VPN, SSH, DCV, Slurm, file copy)
+# AUS HPC quickstart
 
-This README documents the exact workflow we used to access the AUS HPC cluster, create a shared project folder, submit a GPU Slurm job, and copy files from a Windows laptop to the cluster.
+This repository is a beginner friendly guide to access the American University of Sharjah High Performance Computing (AUS HPC) environment from a Windows laptop, move files to the cluster, and run GPU or CPU jobs using the Slurm scheduler.
+
+## What is AUS HPC and why use it
+
+### What is HPC
+HPC means High Performance Computing. It is a set of powerful computers (many CPU cores, large RAM, and GPUs) designed to run heavy workloads faster than a normal laptop.
+
+### Why you might need it
+AUS HPC is useful when a laptop becomes too slow or too limited for tasks such as:
+- neural network training (especially on GPUs)
+- large simulations
+- parameter sweeps and batch experiments
+- long running computations that should not depend on keeping your laptop on
+
+### How it works at AUS (high level)
+AUS HPC has a few key pieces:
+- VPN (AWS Client VPN): secure tunnel into AUS network when off campus
+- Login nodes (SSH or DCV): where you connect, edit files, and submit jobs
+- Shared storage (`/shared/<username>`): where your code and data should live so compute nodes can access them
+- Compute nodes (CPU and GPU): where the actual job runs
+- Slurm scheduler: the system that queues jobs and allocates compute resources
+
+Important: SSH or DCV gets you into the login node. The real training or computation runs on compute nodes after submitting a job with Slurm.
 
 ## What you get
 - Secure access using AWS Client VPN plus AUS SSO
@@ -18,17 +40,17 @@ This README documents the exact workflow we used to access the AUS HPC cluster, 
 ## Install on Windows (local laptop)
 
 ### 1) AWS Client VPN
-Download and install:
+Download:
 https://aws.amazon.com/vpn/client-vpn-download/
 
-AWS docs (Windows):
+Windows usage guide:
 https://docs.aws.amazon.com/vpn/latest/clientvpn-user/client-vpn-connect-windows.html
 
 ### 2) Amazon DCV client (optional, for GUI desktop)
 Download:
 https://www.amazondcv.com/
 
-AWS docs (client overview):
+Client documentation:
 https://docs.aws.amazon.com/dcv/latest/userguide/client.html
 
 ### 3) WinSCP (recommended for easy copy from Windows to HPC)
@@ -39,20 +61,25 @@ https://winscp.net/eng/download.php
 Extension:
 https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh
 
-VS Code docs:
+Docs:
 https://code.visualstudio.com/docs/remote/ssh
 
-## Connect to AUS HPC
+## Connection overview (what happens every time)
+1. Connect VPN (required off campus)
+2. SSH into a login node (or connect using DCV for GUI)
+3. Work inside `/shared/<username>/...`
+4. Submit jobs with Slurm (`sbatch`)
+5. Monitor jobs (`squeue`) and view output logs
 
-### Step 1) Connect VPN (AWS Client VPN)
+## Step 1: Connect VPN (AWS Client VPN)
 1. Open AWS Client VPN.
-2. Import AUS VPN configuration file (.ovpn or similar).
+2. Import the AUS VPN configuration file (.ovpn or similar) if not already added.
 3. Click Connect.
-4. Browser opens AUS SSO, log in with your AUS credentials.
+4. A browser opens AUS SSO. Log in with AUS credentials.
 5. Confirm AWS Client VPN status shows Connected.
 
-### Step 2) SSH to the login node
-Use a terminal on Windows (PowerShell works):
+## Step 2: SSH to a login node
+Use PowerShell on Windows:
 
 CPU login:
 ```bash
