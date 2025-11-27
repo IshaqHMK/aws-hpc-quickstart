@@ -37,6 +37,8 @@ Important: SSH or DCV gets you into the login node. The real training or computa
 ### 1) AWS Client VPN
 Download:
 https://aws.amazon.com/vpn/client-vpn-download/
+or
+https://self-service.clientvpn.amazonaws.com/endpoints/cvpn-endpoint-05fd3a7ddfd1494c4
 
 Windows usage guide:
 https://docs.aws.amazon.com/vpn/latest/clientvpn-user/client-vpn-connect-windows.html
