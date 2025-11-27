@@ -1,20 +1,15 @@
-# AUS HPC quickstart
+# AWS HPC (AUS) quickstart
 
-This repository is a beginner friendly guide to access the American University of Sharjah High Performance Computing (AUS HPC) environment from a Windows laptop, move files to the cluster, and run GPU or CPU jobs using the Slurm scheduler.
+This repository is a beginner friendly guide to access the American University of Sharjah High Performance Computing (HPC) environment from a Windows laptop, move files to the cluster, and run GPU or CPU jobs using the Slurm scheduler. HPC is a set of powerful computers (many CPU cores, large RAM, and GPUs) designed to run heavy workloads faster than a normal laptop.
 
-## What is AUS HPC and why use it
-
-### What is HPC
-HPC means High Performance Computing. It is a set of powerful computers (many CPU cores, large RAM, and GPUs) designed to run heavy workloads faster than a normal laptop.
-
-### Why you might need it
+## Why you might need it
 AUS HPC is useful when a laptop becomes too slow or too limited for tasks such as:
 - neural network training (especially on GPUs)
 - large simulations
 - parameter sweeps and batch experiments
 - long running computations that should not depend on keeping your laptop on
 
-### How it works at AUS (high level)
+## How it works at AUS (high level)
 AUS HPC has a few key pieces:
 - VPN (AWS Client VPN): secure tunnel into AUS network when off campus
 - Login nodes (SSH or DCV): where you connect, edit files, and submit jobs
