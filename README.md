@@ -329,6 +329,299 @@ nn_training/
   results/
 ```
 
+## Step 2: SSH to a login node
+
+Prereq: AWS Client VPN must show **Connected**.
+
+On your Windows laptop, open PowerShell and run:
+
+```powershell
+ssh ihafez@hpc-login-gpu.aus.edu
 ```
-::contentReference[oaicite:0]{index=0}
+
+Enter your AUS password.
+
+You know you are on the HPC when the prompt looks like this:
+
+```text
+[ihafez@ip-10-240-16-55 ~]$
 ```
+
+Important: if you see `PS C:\...>` you are on your laptop, not HPC. Slurm commands will not work on Windows.
+
+---
+
+## Step 3: Create your working folder on shared storage
+
+Run on the HPC terminal:
+
+```bash
+mkdir -p /shared/$USER/nn_training
+cd /shared/$USER/nn_training
+pwd
+```
+
+Expected:
+
+```text
+/shared/ihafez/nn_training
+```
+
+---
+
+## Step 4: Get your Slurm account and partitions
+
+Run:
+
+```bash
+sacctmgr show assoc user=$USER format=User,Account
+sinfo
+```
+
+Correct values for you:
+
+* Account: `acc-rdhaouadi`
+* GPU partition exists: `gpu`
+
+If your account ever prints weird characters like a trailing `+`, do not trust it. Re-run the command and use the clean account name (for you it is `acc-rdhaouadi`).
+
+---
+
+## Step 5: Create a Python environment in /shared (Python 3.10)
+
+We did this because the default python was Python 3.13 and torch was missing.
+
+Run:
+
+```bash
+mkdir -p /shared/$USER/conda_envs
+source /opt/miniconda/etc/profile.d/conda.sh
+```
+
+If conda complains about Terms of Service, accept them:
+
+```bash
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+```
+
+Now create the environment:
+
+```bash
+conda create -y -p /shared/$USER/conda_envs/torch310 python=3.10
+conda activate /shared/$USER/conda_envs/torch310
+python -V
+```
+
+Expected:
+
+```text
+Python 3.10.x
+```
+
+---
+
+## Step 6: Install PyTorch correctly (what worked)
+
+Conda install failed because of glibc constraints, especially with torchvision. What worked was installing torch using pip inside the env.
+
+Inside the env:
+
+```bash
+python -m pip install -U pip setuptools wheel
+pip install torch
+pip install numpy scipy pandas matplotlib tqdm tensorboard pyyaml scikit-learn torchinfo einops
+```
+
+Quick import test:
+
+```bash
+python -c "import torch, numpy; print(torch.__version__); print(numpy.__version__)"
+```
+
+Note: CUDA availability will show False on the login node because it has no GPU. That is normal.
+
+---
+
+## Step 7: Create the Slurm job script correctly (sbatch file)
+
+Critical rules:
+
+1. The first line must be `#!/bin/bash` with no spaces before it.
+2. The file must not contain Windows line endings.
+3. Use your correct account and QoS.
+
+From `/shared/$USER/nn_training`, create or overwrite the sbatch file using this terminal copy paste:
+
+```bash
+cat > train_gpu.sbatch <<'EOF'
+#!/bin/bash
+#SBATCH --account=acc-rdhaouadi
+#SBATCH --partition=gpu
+#SBATCH --qos=gpu-long-rdhaouadi-001
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=2G
+#SBATCH --gres=gpu:1
+#SBATCH --time=00:10:00
+#SBATCH --job-name=nn_test
+#SBATCH --output=slurm_%j.out
+
+cd /shared/$USER/nn_training
+source /opt/miniconda/etc/profile.d/conda.sh
+conda activate /shared/$USER/conda_envs/torch310
+python train.py
+EOF
+```
+
+Then clean line endings:
+
+```bash
+dos2unix train_gpu.sbatch 2>/dev/null || sed -i 's/\r$//' train_gpu.sbatch
+```
+
+Verify the first lines:
+
+```bash
+head -n 5 train_gpu.sbatch
+cat -A train_gpu.sbatch | head -n 3
+```
+
+You must not see `^M`.
+
+---
+
+## Step 8: Create a GPU sanity check python script
+
+Create `train.py` in the same folder:
+
+```bash
+cat > train.py <<'EOF'
+import torch, time
+
+print("torch:", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+print("device count:", torch.cuda.device_count())
+if torch.cuda.is_available():
+    print("gpu:", torch.cuda.get_device_name(0))
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+x = torch.randn(30000, 512, device=device)
+w = torch.randn(512, 1, device=device, requires_grad=True)
+
+t0 = time.time()
+for epoch in range(5):
+    y = x @ w
+    loss = (y**2).mean()
+    loss.backward()
+    with torch.no_grad():
+        w -= 1e-3 * w.grad
+        w.grad.zero_()
+    print("epoch", epoch, "loss", float(loss))
+
+print("elapsed_sec", time.time() - t0)
+EOF
+```
+
+---
+
+## Step 9: Submit, monitor, and read output
+
+Submit:
+
+```bash
+sbatch train_gpu.sbatch
+```
+
+It returns a job id like:
+
+```text
+Submitted batch job 117530
+```
+
+Monitor:
+
+```bash
+squeue -u $USER
+```
+
+Common states:
+
+* `CF` configuring, normal right after submit
+* `R` running
+* disappears from queue when finished
+
+Check final result:
+
+```bash
+sacct -j <jobid> --format=JobID,State,Elapsed,ExitCode
+```
+
+Read output:
+
+```bash
+ls -lh slurm_*.out
+less slurm_<jobid>.out
+```
+
+Exit less with `q`.
+
+Your success criteria in the output:
+
+* `cuda available: True`
+* GPU name printed (A10G on your cluster)
+
+---
+
+## Step 10: Copy your real code and data from your laptop to HPC
+
+Windows File Explorer cannot see `/shared/...` because it is on the remote HPC.
+
+Use WinSCP:
+
+* Protocol: SFTP
+* Host: `hpc-login-gpu.aus.edu`
+* Port: `22`
+* Username: `ihafez`
+* Password: AUS password
+
+Remote folder to drop files into:
+
+```text
+/shared/ihafez/nn_training
+```
+
+After copying, verify on HPC:
+
+```bash
+cd /shared/$USER/nn_training
+ls -lh
+```
+
+---
+
+## Step 11: Using VS Code in DCV (optional)
+
+You can edit files using VS Code in the DCV desktop, but your files still live in `/shared/ihafez/nn_training`.
+
+In the DCV file picker, do this to jump to a path:
+
+* press Ctrl + L
+* paste `/shared/ihafez/nn_training`
+* press Enter
+* Open
+
+---
+
+## The two big mistakes we fixed (so no one repeats them)
+
+1. Running Slurm commands on Windows PowerShell
+   Fix: only run `sbatch`, `sinfo`, `sacctmgr` after SSH when the prompt is `[ihafez@...]$`.
+
+2. The sbatch file contained terminal commands instead of the script
+   Fix: the sbatch file must only contain the script text starting with `#!/bin/bash`.
+
+If you want, paste your existing README stub and I will format this into a clean section you can copy paste into your repo.
+
