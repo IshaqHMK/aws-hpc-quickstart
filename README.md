@@ -1,4 +1,4 @@
-# AWS HPC (AUS) quickstart
+# AWS HPC (AUS) Quickstart
 
 This repository is a beginner friendly guide to access the American University of Sharjah High Performance Computing (HPC) environment from a Windows laptop, move files to the cluster, and run GPU or CPU jobs using the Slurm scheduler. HPC is a set of powerful computers (many CPU cores, large RAM, and GPUs) designed to run heavy workloads faster than a normal laptop.
 
@@ -23,7 +23,7 @@ Important: SSH or DCV gets you into the login node. The real training or computa
 - Secure access using AWS Client VPN plus AUS SSO
 - SSH access to the HPC login node
 - Shared storage under `/shared/<username>/...`
-- Job submission using Slurm (sbatch, squeue, sinfo, sacctmgr)
+- Job submission using Slurm (`sbatch`, `squeue`, `sinfo`, `sacctmgr`)
 - Optional GUI desktop using Amazon DCV (with VS Code inside DCV)
 - Drag and drop file transfer from Windows using WinSCP (SFTP)
 
@@ -36,30 +36,29 @@ Important: SSH or DCV gets you into the login node. The real training or computa
 
 ### 1) AWS Client VPN
 Download:
-https://aws.amazon.com/vpn/client-vpn-download/
-or
-https://self-service.clientvpn.amazonaws.com/endpoints/cvpn-endpoint-05fd3a7ddfd1494c4
+- https://aws.amazon.com/vpn/client-vpn-download/
+- https://self-service.clientvpn.amazonaws.com/endpoints/cvpn-endpoint-05fd3a7ddfd1494c4
 
 Windows usage guide:
-https://docs.aws.amazon.com/vpn/latest/clientvpn-user/client-vpn-connect-windows.html
+- https://docs.aws.amazon.com/vpn/latest/clientvpn-user/client-vpn-connect-windows.html
 
 ### 2) Amazon DCV client (optional, for GUI desktop)
 Download:
-https://www.amazondcv.com/
+- https://www.amazondcv.com/
 
 Client documentation:
-https://docs.aws.amazon.com/dcv/latest/userguide/client.html
+- https://docs.aws.amazon.com/dcv/latest/userguide/client.html
 
 ### 3) WinSCP (recommended for easy copy from Windows to HPC)
 Download:
-https://winscp.net/eng/download.php
+- https://winscp.net/eng/download.php
 
 ### 4) VS Code Remote SSH (optional alternative workflow)
 Extension:
-https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh
+- https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh
 
 Docs:
-https://code.visualstudio.com/docs/remote/ssh
+- https://code.visualstudio.com/docs/remote/ssh
 
 ## Connection overview (what happens every time)
 1. Connect VPN (required off campus)
@@ -76,14 +75,16 @@ https://code.visualstudio.com/docs/remote/ssh
 5. Confirm AWS Client VPN status shows Connected.
 
 ## Step 2: SSH to a login node
-Use PowerShell on Windows:
 
-CPU login:
+Prereq: AWS Client VPN must show Connected.
+
+### CPU login
+On your Windows laptop, open PowerShell and run:
 ```bash
 ssh <username>@hpc-login-gen.aus.edu
 ````
 
-GPU login:
+### GPU login
 
 ```bash
 ssh <username>@hpc-login-gpu.aus.edu
@@ -91,13 +92,20 @@ ssh <username>@hpc-login-gpu.aus.edu
 
 First time you will see a host key prompt. Type `yes`.
 
-Important note:
-If you run Slurm commands on Windows PowerShell, they will fail.
-Slurm commands work only after you are inside the HPC SSH session.
+You know you are on the HPC when the prompt looks like this:
 
-## Create your shared project folder (on the HPC, inside SSH)
+```text
+[ihafez@ip-10-240-16-55 ~]$
+```
 
-After SSH login, run:
+Important:
+
+* If you see `PS C:\...>` you are on your laptop, not HPC.
+* Slurm commands work only after you are inside the HPC SSH session.
+
+## Step 3: Create your working folder on shared storage
+
+Run on the HPC terminal:
 
 ```bash
 mkdir -p /shared/$USER/nn_training
@@ -106,9 +114,12 @@ pwd
 ```
 
 Expected:
-`/shared/<username>/nn_training`
 
-## Find your Slurm account and partitions (on the HPC)
+```text
+/shared/<username>/nn_training
+```
+
+## Step 4: Get your Slurm account and partitions
 
 Account:
 
@@ -138,254 +149,12 @@ gpu       up    infinite  30    idle~ gpu-dy-g5-0-[1-30]
 hpc       up    infinite  30    idle~ hpc-dy-h6-0-[1-30]
 ```
 
-## Run a GPU example job (PyTorch) using Slurm
-
-### 1) Create `train.py` (on the HPC)
-
-Inside `/shared/$USER/nn_training`:
-
-```bash
-nano train.py
-```
-
-Paste:
-
-```python
-import torch
-
-print("torch:", torch.__version__)
-print("cuda available:", torch.cuda.is_available())
-print("device count:", torch.cuda.device_count())
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-x = torch.randn(20000, 256, device=device)
-w = torch.randn(256, 1, device=device, requires_grad=True)
-
-for epoch in range(10):
-    y = x @ w
-    loss = (y**2).mean()
-    loss.backward()
-    with torch.no_grad():
-        w -= 1e-3 * w.grad
-        w.grad.zero_()
-    print("epoch", epoch, "loss", float(loss))
-
-print("done")
-```
-
-Save and exit nano.
-
-### 2) Create `train_gpu.sbatch` (on the HPC)
-
-```bash
-nano train_gpu.sbatch
-```
-
-Paste, and replace `YOUR_ACCOUNT` with your Slurm account (example: `acc-rdhao+`):
-
-```bash
-#!/bin/bash
-#SBATCH --account=YOUR_ACCOUNT
-#SBATCH --partition=gpu
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
-#SBATCH --gres=gpu:1
-#SBATCH --time=00:10:00
-#SBATCH --job-name=nn_test
-#SBATCH --output=slurm_%j.out
-
-cd /shared/$USER/nn_training
-python3 train.py
-```
-
-### 3) Submit the job (on the HPC)
-
-```bash
-cd /shared/$USER/nn_training
-sbatch train_gpu.sbatch
-```
-
-You will get a job id:
-`Submitted batch job <jobid>`
-
-### 4) Monitor (on the HPC)
-
-```bash
-squeue -u $USER
-```
-
-### 5) View output (on the HPC)
-
-After the job finishes:
-
-```bash
-ls -lh
-less slurm_*.out
-```
-
-You want to see:
-
-* `cuda available: True`
-* epoch loss values
-
-## Amazon DCV desktop (GUI) plus VS Code inside DCV (optional)
-
-### 1) Create a DCV session
-
-If DCV says there is no session, SSH into the login node once. The system may auto create a session.
-
-### 2) Connect using DCV client
-
-In Amazon DCV client:
-
-* Host: `hpc-login-gpu.aus.edu` (or the login node you used)
-* Username: your AUS username
-* Password: your AUS password
-
-### 3) Open the shared folder in the DCV file manager
-
-Within the DCV desktop, use the Linux "Files" app and browse:
-`/shared/<username>/nn_training`
-
-Tip:
-If the file chooser is confusing, you can create a shortcut:
-
-```bash
-ln -sfn /shared/$USER/nn_training ~/nn_training
-```
-
-Then open `~/nn_training` from the DCV file manager.
-
-### 4) Open VS Code inside DCV
-
-In a DCV terminal:
-
-```bash
-code /shared/$USER/nn_training
-```
-
-If `code` runs but nothing obvious happens, check if VS Code opened behind other windows.
-
-## Copy files from Windows to HPC using WinSCP (this is what we used)
-
-### 1) Keep VPN connected
-
-AWS Client VPN must show Connected.
-
-### 2) WinSCP new connection
-
-* File protocol: SFTP
-* Host name: `hpc-login-gpu.aus.edu`
-* Port number: `22`
-* User name: your AUS username
-* Password: your AUS password
-
-### 3) Drag and drop
-
-Remote target folder:
-`/shared/<username>/nn_training`
-
-Drag files or whole folders from the Windows pane to the remote pane.
-
-### 4) Verify on HPC
-
-In SSH:
-
-```bash
-cd /shared/$USER/nn_training
-ls -lh
-```
-
-## Common mistakes and fixes
-
-### Mistake: running `sacctmgr` or `sinfo` on Windows PowerShell
-
-Symptom: "command not recognized"
-Fix: SSH into the HPC first. Run Slurm commands only inside the HPC SSH session.
-
-### Mistake: expecting Windows File Explorer to show `/shared/...`
-
-Fix: `/shared/...` is on the Linux HPC.
-Use WinSCP (SFTP) for file copy, or use VS Code Remote SSH to edit on the HPC directly.
-
-## Suggested repo structure (example)
-
-* `scripts/` for sbatch files and helpers
-* `src/` for training code
-* `data/` for small sample data (do not commit big datasets)
-* `results/` for logs and outputs (often not committed)
-
-Example:
-
-```text
-nn_training/
-  README.md
-  train.py
-  train_gpu.sbatch
-  scripts/
-  src/
-  results/
-```
-
-## Step 2: SSH to a login node
-
-Prereq: AWS Client VPN must show **Connected**.
-
-On your Windows laptop, open PowerShell and run:
-
-```powershell
-ssh ihafez@hpc-login-gpu.aus.edu
-```
-
-Enter your AUS password.
-
-You know you are on the HPC when the prompt looks like this:
-
-```text
-[ihafez@ip-10-240-16-55 ~]$
-```
-
-Important: if you see `PS C:\...>` you are on your laptop, not HPC. Slurm commands will not work on Windows.
-
----
-
-## Step 3: Create your working folder on shared storage
-
-Run on the HPC terminal:
-
-```bash
-mkdir -p /shared/$USER/nn_training
-cd /shared/$USER/nn_training
-pwd
-```
-
-Expected:
-
-```text
-/shared/ihafez/nn_training
-```
-
----
-
-## Step 4: Get your Slurm account and partitions
-
-Run:
-
-```bash
-sacctmgr show assoc user=$USER format=User,Account
-sinfo
-```
-
 Correct values for you:
 
 * Account: `acc-rdhaouadi`
 * GPU partition exists: `gpu`
 
 If your account ever prints weird characters like a trailing `+`, do not trust it. Re-run the command and use the clean account name (for you it is `acc-rdhaouadi`).
-
----
 
 ## Step 5: Create a Python environment in /shared (Python 3.10)
 
@@ -419,8 +188,6 @@ Expected:
 Python 3.10.x
 ```
 
----
-
 ## Step 6: Install PyTorch correctly (what worked)
 
 Conda install failed because of glibc constraints, especially with torchvision. What worked was installing torch using pip inside the env.
@@ -441,8 +208,6 @@ python -c "import torch, numpy; print(torch.__version__); print(numpy.__version_
 
 Note: CUDA availability will show False on the login node because it has no GPU. That is normal.
 
----
-
 ## Step 7: Create the Slurm job script correctly (sbatch file)
 
 Critical rules:
@@ -451,7 +216,7 @@ Critical rules:
 2. The file must not contain Windows line endings.
 3. Use your correct account and QoS.
 
-From `/shared/$USER/nn_training`, create or overwrite the sbatch file using this terminal copy paste:
+From `/shared/$USER/nn_training`, create or overwrite the sbatch file:
 
 ```bash
 cat > train_gpu.sbatch <<'EOF'
@@ -490,8 +255,6 @@ cat -A train_gpu.sbatch | head -n 3
 
 You must not see `^M`.
 
----
-
 ## Step 8: Create a GPU sanity check python script
 
 Create `train.py` in the same folder:
@@ -524,8 +287,6 @@ for epoch in range(5):
 print("elapsed_sec", time.time() - t0)
 EOF
 ```
-
----
 
 ## Step 9: Submit, monitor, and read output
 
@@ -573,8 +334,6 @@ Your success criteria in the output:
 * `cuda available: True`
 * GPU name printed (A10G on your cluster)
 
----
-
 ## Step 10: Copy your real code and data from your laptop to HPC
 
 Windows File Explorer cannot see `/shared/...` because it is on the remote HPC.
@@ -584,13 +343,13 @@ Use WinSCP:
 * Protocol: SFTP
 * Host: `hpc-login-gpu.aus.edu`
 * Port: `22`
-* Username: `ihafez`
+* Username: your AUS username
 * Password: AUS password
 
 Remote folder to drop files into:
 
 ```text
-/shared/ihafez/nn_training
+/shared/<username>/nn_training
 ```
 
 After copying, verify on HPC:
@@ -600,28 +359,106 @@ cd /shared/$USER/nn_training
 ls -lh
 ```
 
----
+## Amazon DCV desktop (GUI) plus VS Code inside DCV (optional)
 
-## Step 11: Using VS Code in DCV (optional)
+### 1) Create a DCV session
 
-You can edit files using VS Code in the DCV desktop, but your files still live in `/shared/ihafez/nn_training`.
+If DCV says there is no session, SSH into the login node once. The system may auto create a session.
 
-In the DCV file picker, do this to jump to a path:
+### 2) Connect using DCV client
 
-* press Ctrl + L
-* paste `/shared/ihafez/nn_training`
-* press Enter
-* Open
+In Amazon DCV client:
 
----
+* Host: `hpc-login-gpu.aus.edu` (or the login node you used)
+* Username: your AUS username
+* Password: your AUS password
 
-## The two big mistakes we fixed (so no one repeats them)
+### 3) Open the shared folder in the DCV file manager
 
-1. Running Slurm commands on Windows PowerShell
-   Fix: only run `sbatch`, `sinfo`, `sacctmgr` after SSH when the prompt is `[ihafez@...]$`.
+Within the DCV desktop, use the Linux "Files" app and browse:
+`/shared/<username>/nn_training`
 
-2. The sbatch file contained terminal commands instead of the script
-   Fix: the sbatch file must only contain the script text starting with `#!/bin/bash`.
+Tip: you can create a shortcut:
 
-If you want, paste your existing README stub and I will format this into a clean section you can copy paste into your repo.
+```bash
+ln -sfn /shared/$USER/nn_training ~/nn_training
+```
 
+Then open `~/nn_training` from the DCV file manager.
+
+### 4) Open VS Code inside DCV
+
+In a DCV terminal:
+
+```bash
+code /shared/$USER/nn_training
+```
+
+If `code` runs but nothing obvious happens, check if VS Code opened behind other windows.
+
+## Copy files from Windows to HPC using WinSCP (what we used)
+
+### 1) Keep VPN connected
+
+AWS Client VPN must show Connected.
+
+### 2) WinSCP new connection
+
+* File protocol: SFTP
+* Host name: `hpc-login-gpu.aus.edu`
+* Port number: `22`
+* User name: your AUS username
+* Password: your AUS password
+
+### 3) Drag and drop
+
+Remote target folder:
+`/shared/<username>/nn_training`
+
+Drag files or whole folders from the Windows pane to the remote pane.
+
+### 4) Verify on HPC
+
+In SSH:
+
+```bash
+cd /shared/$USER/nn_training
+ls -lh
+```
+
+## Common mistakes and fixes
+
+### Mistake: running `sacctmgr` or `sinfo` on Windows PowerShell
+
+Symptom: "command not recognized"
+Fix: SSH into the HPC first. Run Slurm commands only inside the HPC SSH session.
+
+### Mistake: expecting Windows File Explorer to show `/shared/...`
+
+Fix: `/shared/...` is on the Linux HPC. Use WinSCP (SFTP) for file copy, or use VS Code Remote SSH to edit on the HPC directly.
+
+### Mistake: the sbatch file contained terminal commands instead of the script
+
+Fix: the sbatch file must only contain the script text starting with `#!/bin/bash`.
+
+## Suggested repo structure (example)
+
+* `scripts/` for sbatch files and helpers
+* `src/` for training code
+* `data/` for small sample data (do not commit big datasets)
+* `results/` for logs and outputs (often not committed)
+
+Example:
+
+```text
+nn_training/
+  README.md
+  train.py
+  train_gpu.sbatch
+  scripts/
+  src/
+  results/
+```
+
+```
+```
