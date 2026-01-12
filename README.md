@@ -82,7 +82,7 @@ Prereq: AWS Client VPN must show Connected.
 On your Windows laptop, open PowerShell and run:
 ```bash
 ssh <username>@hpc-login-gen.aus.edu
-````
+```
 
 ### GPU login
 
@@ -458,7 +458,4 @@ nn_training/
   scripts/
   src/
   results/
-```
-
-```
 ```
