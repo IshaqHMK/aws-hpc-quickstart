@@ -426,36 +426,3 @@ cd /shared/$USER/nn_training
 ls -lh
 ```
 
-## Common mistakes and fixes
-
-### Mistake: running `sacctmgr` or `sinfo` on Windows PowerShell
-
-Symptom: "command not recognized"
-Fix: SSH into the HPC first. Run Slurm commands only inside the HPC SSH session.
-
-### Mistake: expecting Windows File Explorer to show `/shared/...`
-
-Fix: `/shared/...` is on the Linux HPC. Use WinSCP (SFTP) for file copy, or use VS Code Remote SSH to edit on the HPC directly.
-
-### Mistake: the sbatch file contained terminal commands instead of the script
-
-Fix: the sbatch file must only contain the script text starting with `#!/bin/bash`.
-
-## Suggested repo structure (example)
-
-* `scripts/` for sbatch files and helpers
-* `src/` for training code
-* `data/` for small sample data (do not commit big datasets)
-* `results/` for logs and outputs (often not committed)
-
-Example:
-
-```text
-nn_training/
-  README.md
-  train.py
-  train_gpu.sbatch
-  scripts/
-  src/
-  results/
-```
